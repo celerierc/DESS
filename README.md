@@ -1,1 +1,1 @@
-echo # DESS: Department Extraction using Search and spaCy
+# DESS: Department Extraction using Search and spaCy
