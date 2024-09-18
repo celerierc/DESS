@@ -1,0 +1,4 @@
+internalUpdates.md
+.*env/
+.env
+__pycache__/
