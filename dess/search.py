@@ -13,12 +13,12 @@ def search_google(name: str, university: str,snapshots:int):
     # Have options
     options = Options()
     options.headless = True
-    # options.add_experimental_option("detach", True)
+    options.add_experimental_option("detach", True)
     service = Service('/opt/homebrew/bin/chromedriver')
 
     # pass options to driver
     driver = webdriver.Chrome(service=service, options=options)
-    search_query = f'"{name}" {university} department'
+    search_query = f'"{name}" {university}'
     google_url = f"https://www.google.com/search?q={search_query.replace(' ', '+')}"
     # print(f'Using URL = {google_url}')
 
@@ -53,7 +53,7 @@ def search_google(name: str, university: str,snapshots:int):
         # driver.quit()
 
     # Close the driver
-    driver.quit()
+    #driver.quit()
 
 
 def parse_text(text: str):
@@ -64,4 +64,4 @@ def parse_text(text: str):
 
 
 if __name__ == '__main__':
-    search_google("Arnold Rosenbloom", "University of Toronto",4)
+    search_google("Diana Raffman", "University of Toronto",4)
