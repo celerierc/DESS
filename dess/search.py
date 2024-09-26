@@ -14,6 +14,16 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.firefox.options import Options as FireFoxOptions
 import time
 
+def setup_driver(driver_type: str) -> webdriver:
+    """Sets up the web driver based on the specified type."""
+    if driver_type == 'chrome':
+        return create_chrome_driver()
+    elif driver_type == 'firefox':
+        return create_firefox_driver()
+    else:
+        raise ValueError("Invalid driver type specified. Use 'chrome' or 'firefox'.")
+
+
 def create_chrome_driver():
     """
     Initializes and returns a Chrome web driver with specified options.
@@ -42,7 +52,6 @@ def create_firefox_driver():
     # options.add_argument("--headless")
     driver = webdriver.Firefox(options=options)
     return driver
-
 
 def get_snapshots_from_google(driver: webdriver,name: str, university: str,snapshots:int):
     """
@@ -94,7 +103,6 @@ def get_snapshots_from_google(driver: webdriver,name: str, university: str,snaps
     except Exception as e:
         print(f'Error while scraping', e)
         # driver.quit()
-
 
 def parse_text(text: str):
     text = text.split('\n')
