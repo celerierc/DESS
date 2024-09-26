@@ -44,7 +44,7 @@ def create_firefox_driver():
     return driver
 
 
-def search_google(driver: webdriver,name: str, university: str,snapshots:int):
+def get_snapshots_from_google(driver: webdriver,name: str, university: str,snapshots:int):
     """
     Performs a Google search for the given name and university, and retrieves specified snapshots of the search results.
 
@@ -104,4 +104,4 @@ def parse_text(text: str):
     return text[-1].strip()
 
 if __name__ == '__main__':
-    search_google("Tyler Holden", "University of Toronto",4)
+    get_snapshots_from_google("Tyler Holden", "University of Toronto",4)
