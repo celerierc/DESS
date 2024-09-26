@@ -5,8 +5,8 @@ scraped from Google search results, as well as the NLP-analysis performed by the
 to ascertain department. 
 """
 import pandas as pd
-import search
-import nlp
+import dess.search as search
+import dess.nlp as nlp
 
 def populate_raw_text(df: pd.DataFrame, driver, snapshots: int) -> pd.Series:
     """Populates the rawText column in the DataFrame."""
