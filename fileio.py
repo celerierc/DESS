@@ -1,4 +1,13 @@
 #!python3
+"""
+This module provides utilities for interacting with Dropbox to manage and process 
+data files. It includes functions for retrieving `.dta` and `.xlsx` files from a 
+specified Dropbox folder, loading these files into pandas DataFrames, and uploading 
+processed data back to Dropbox.
+
+Before using the functions, ensure that the `DROPBOX_ACCESS_TOKEN` is set up in 
+an environment file (.env) to allow authenticated access to Dropbox.
+"""
 import dropbox
 from dropbox.files import WriteMode
 from dotenv import load_dotenv
