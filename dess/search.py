@@ -49,7 +49,7 @@ def create_firefox_driver():
     options = FireFoxOptions()
     options.set_preference("dom.popup_maximum", 0)
     options.set_preference("privacy.popups.disable_from_plugins", 3)
-    # options.add_argument("--headless")
+    options.add_argument("--headless")
     driver = webdriver.Firefox(options=options)
     return driver
 
@@ -69,7 +69,7 @@ def get_snapshots_from_google(driver: webdriver,name: str, university: str,snaps
     Raises:
         Exception: Raises an exception if there is an error during the search or result retrieval.
     """
-    search_query = f'"{name}" {university}'
+    search_query = f'{name} {university}'
     google_url = f"https://www.google.com/search?q={search_query.replace(' ', '+')}"
     driver.get(google_url)
 

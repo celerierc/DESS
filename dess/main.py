@@ -10,9 +10,12 @@ import dess.nlp as nlp
 
 def populate_raw_text(df: pd.DataFrame, driver, snapshots: int) -> pd.Series:
     """Populates the rawText column in the DataFrame."""
+    count = 0
     def fetch_raw_text(row):
-        return search.get_snapshots_from_google(driver, row['Name'], row['University'], snapshots)
-    
+        nonlocal count
+        count += 1
+        print(f"\t row #{count}")
+        return search.get_snapshots_from_google(driver, row['id_text'], "", snapshots)
     return df.apply(fetch_raw_text, axis=1)
 
 
@@ -36,11 +39,8 @@ def main(df: pd.DataFrame, driver_type: str, snapshots: int) -> pd.DataFrame:
     Returns:
         pd.DataFrame: Updated DataFrame with additional columns populated.
     """
-    
     driver = search.setup_driver(driver_type)
-
     df['rawText'] = populate_raw_text(df, driver, snapshots)
-
     driver.quit()
     
     # populate_faculty_columns(df)
