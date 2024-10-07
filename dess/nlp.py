@@ -21,8 +21,14 @@ matcher.add("DEPARTMENT_PATTERNS", patterns)
 
 def populate_faculty_columns(rawText: list[str]):
     department = extract_department(rawText)
-    isFaculty = department != "MISSING"
+    isFaculty = extract_professor_in_text(rawText)
     return isFaculty, department
+
+def extract_professor_in_text(rawText: list[str]) -> str:
+    if rawText is None: return False
+    for text in rawText:
+        if 'professor' in text.lower(): return True
+    return False
 
 def extract_department(rawText: list[str]) -> str:
     """
@@ -38,28 +44,37 @@ def extract_department(rawText: list[str]) -> str:
     return extract_department_regex(rawText)
 
 def extract_department_regex(rawText):
-        # Define the patterns to search for, case-insensitive keywords
-    patterns = {
-        "professor": r'professor ([A-Za-z\s]+)',
-        "professor_of": r'professor of ([A-Za-z\s]+)',
-        "professor_of_the_department": r'professor of the ([A-Za-z\s]+) department',
-        "professor_in": r'professor in ([A-Za-z\s]+)',
-        "professor_in_the_department": r'professor in ([A-Za-z\s]+) department',
-        "department_of": r'department of ([A-Za-z\s]+)',
-        "in_the_department": r'in the ([A-Za-z\s]+) department',
-        "the_department": r'the ([A-Za-z\s]+) department',
-        "the_department_of_at": r'the department of ([A-Za-z\s]+) at'
-    }
+    primary_patterns = [
+        r'professor of ([A-Za-z]+)',              # Professor of + first word
+        r'department of ([A-Za-z]+)',             # Department of + first word
+        r'professor in the ([A-Za-z]+)'           # Professor in the + first word
+    ]
+
+    backup_patterns = [
+        r'school of ([A-Za-z]+)',                 # School of + first word
+        r'college of ([A-Za-z]+)',                # College of + first word
+        r'book on ([A-Za-z]+)',                   # Book on + first word
+        r'in the area of ([A-Za-z]+)',            # In the area of + first word
+        r'research primarily focused on ([A-Za-z]+)'  # Research primarily focused on + first word
+    ]
+
     if rawText is None: return "MISSING"
 
-    # Check each pattern and return the first matched department
+    # Iterating over snapshots and trying primary patterns
     for text in rawText:
-        for key, pattern in patterns.items():
-            match = re.search(pattern, text, re.IGNORECASE)
+        for pattern in primary_patterns:
+            match = re.match(pattern, text, re.IGNORECASE)
             if match:
-                return match.group(1).strip()  # Return the captured department name
+                return match.group(1).strip()
 
-    return "MISSING"
+    # Iterating over snapshots and trying backup patterns
+    for text in rawText:
+        for pattern in backup_patterns:
+            match = re.match(pattern, text, re.IGNORECASE)
+            if match:
+                return match.group(1).strip()
+
+    return "MISSING"    
 
 def extract_department_spacy(rawText):
     if rawText is None: return "MISSING"
