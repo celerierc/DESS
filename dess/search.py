@@ -79,37 +79,52 @@ def get_snapshots_from_google(driver: webdriver,name: str, university: str,snaps
     try:
         #This will contain the raw text from the search results
         feature_vector = []
-        results = driver.find_elements(By.XPATH, '//div[@class="MjjYud"]')
+        results = driver.find_elements(By.XPATH, '//div[@class="sATSHe"]')
+        if len(results)<snapshots:
+            #Use a different xpath
+            results = driver.find_elements(By.XPATH, '//div[@class="MjjYud"]')
+        #print(f'Length of the div list is = {len(results)}')
         no_of_wanted_results = snapshots
         completed = 0
         index = 0
         while completed != no_of_wanted_results:
             div_element = results[index]
             try:
+                
+                div_text = div_element.text
                 span_text = div_element.find_element(By.XPATH, './/span').text
                 if span_text == 'People also ask':
                     index += 1
                     continue
-                div_text = div_element.text
+                elif 'People also ask' in div_text:
+                    index += 1
+                    continue
                 feature_vector.append(parse_text(div_text))
+                
                 completed += 1
+        
             except:
+                print(f'index {index} failed to scrape')
                 index += 1
                 continue
-
+        
             index += 1
+        #print(feature_vector)
+        print(f'Done with prof: {name}')
         return feature_vector
 
     except Exception as e:
+        print(f'Failed for prof: {name}')
         print(f'Error while scraping', e)
         # driver.quit()
 
 def parse_text(text: str):
     text = text.split('\n')
-    # use enumerate
-    # for idx, t in enumerate(text):
-    #     #print(f'Index {idx}, text: {t}')
     return text[-1].strip()
 
 if __name__ == '__main__':
-    get_snapshots_from_google("Tyler Holden", "University of Toronto",4)
+    driver = create_chrome_driver()
+    #get_snapshots_from_google(driver,"Arnold Rosenbloom ", "University of Toronto",4)
+    #get_snapshots_from_google(driver,"A Abubaker", "virginia commonwealth university",4)
+    #get_snapshots_from_google(driver,"A Alofsin ", "university of texas at austin",4)
+
