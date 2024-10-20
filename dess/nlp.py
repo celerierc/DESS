@@ -41,7 +41,30 @@ def extract_department(rawText: list[str]) -> str:
     Returns:
         str: The extracted department or an empty string if no match is found.
     """
+    # return extract_department_regex(rawText)
     return extract_department_regex(rawText)
+
+def extract_department_regex_old(rawText):
+        # Define the patterns to search for, case-insensitive keywords
+    patterns = {
+        "professor": r'professor ([A-Za-z\s]+)',
+        "professor_of": r'professor of ([A-Za-z\s]+)',
+        "professor_of_the_department": r'professor of the ([A-Za-z\s]+) department',
+        "professor_in": r'professor in ([A-Za-z\s]+)',
+        "professor_in_the_department": r'professor in ([A-Za-z\s]+) department',
+        "department_of": r'department of ([A-Za-z\s]+)',
+        "in_the_department": r'in the ([A-Za-z\s]+) department',
+        "the_department": r'the ([A-Za-z\s]+) department',
+        "the_department_of_at": r'the department of ([A-Za-z\s]+) at'
+    }
+    if rawText is None: return "MISSING"
+    # Check each pattern and return the first matched department
+    for text in rawText:
+        for key, pattern in patterns.items():
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                return match.group(1).strip()  # Return the captured department name
+    return "MISSING"
 
 def extract_department_regex(rawText):
     primary_patterns = [
@@ -59,18 +82,20 @@ def extract_department_regex(rawText):
     ]
 
     if rawText is None: return "MISSING"
-
+    
+    #concat_str_lst = [" ".join(rawText)]
     # Iterating over snapshots and trying primary patterns
     for text in rawText:
+        #print(text)
         for pattern in primary_patterns:
-            match = re.match(pattern, text, re.IGNORECASE)
+            match = re.search(pattern, text, re.IGNORECASE)
             if match:
                 return match.group(1).strip()
 
     # Iterating over snapshots and trying backup patterns
     for text in rawText:
         for pattern in backup_patterns:
-            match = re.match(pattern, text, re.IGNORECASE)
+            match = re.search(pattern, text, re.IGNORECASE)
             if match:
                 return match.group(1).strip()
 

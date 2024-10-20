@@ -14,7 +14,7 @@ import pandas as pd
 import fileio
 from dess.main import main as dess
 
-LOCAL_PARQUET_PATH = 'storage/ds.parquet'
+LOCAL_PARQUET_PATH = 'tobeProcessed.parquet'
 CHUNK_SIZE = 200
 
 def prune_dataframe(df: pd.DataFrame) -> pd.DataFrame:
@@ -43,15 +43,16 @@ def prune_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 def process_and_cache(df):
     print('begun processing')
     start = time.time()
-    for i in range(3400, len(df), CHUNK_SIZE):
+    for i in range(88260, len(df)//2, CHUNK_SIZE):
         chunk = df.iloc[i:i + CHUNK_SIZE].copy()
-        chunk = dess(chunk, 'firefox', 4)
+        #Check if chunk['rawText'] is None
+        chunk = dess(chunk, 'chrome', 4,True)
         df.iloc[i:i + CHUNK_SIZE, df.columns.get_loc('rawText')] = chunk['rawText']
         df.to_parquet(LOCAL_PARQUET_PATH, index=False)
         current_time = time.time()
         time_taken = current_time - start
         start = current_time
-        print(f"[{time_taken:.2f}] Processed and updated chunk {i // CHUNK_SIZE} of {df.shape[0] // CHUNK_SIZE}")
+        print(f"[{time_taken:.2f}] Processed and updated chunk {i // CHUNK_SIZE} of {(df.shape[0]) // CHUNK_SIZE}")
 
 def main():
     # Step 1: Loading the data structure
@@ -61,13 +62,22 @@ def main():
     else:
         print("Loading data from Dropbox (and caching parquet file)...")
         df = fileio.load_data_from_dropbox() 
-    # df = prune_dataframe(df)
-    # df.to_parquet(LOCAL_PARQUET_PATH, index=False)
-    # print(df)
-    process_and_cache(df)
-
-    # # Step 2: pass data to DESS module
-    # df = dess(df, 'firefox', 4)
+        
+    #Check whether the full raw_text column are None  in the dataframe
+    if df['rawText'].isnull().all():
+        print('Processing the dataframe...Extracting rawText from Google Search Results...')
+        process_and_cache(df)
+    #Check if any one of the rawText row is populated then we can skip the processing
+    elif df['rawText'].notnull().values.any():
+        print('Uncompleted Parquet file has rawText populated')
+        #Make 2 df one where rawText is populated and one where rawText is not populated
+        df_populatedRawText = df[df['rawText'].notnull()]
+        df_unpopulatedRawText = df[df['rawText'].isnull()]
+        df_populatedRawText.to_parquet('facutyToBeProcessed.parquet', index=False)
+        df_unpopulatedRawText.to_parquet('rawTextReProcessing.parquet', index=False)
+        fully_processed_df = dess(df_populatedRawText, 'chrome', 4,False)
+        fully_processed_df.to_parquet('processed2.parquet', index=False)
+    
 
 def examine_results():
     # df = pd.read_csv('storage/ds_100_spacy.csv')
@@ -81,5 +91,5 @@ def examine_results():
     df.to_csv('storage/ds.csv')
 
 if __name__ == "__main__":
-    # main()
-    examine_results()
+    main()
+    #examine_results()

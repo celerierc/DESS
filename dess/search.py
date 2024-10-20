@@ -104,7 +104,6 @@ def get_snapshots_from_google(driver: webdriver,name: str, university: str,snaps
                 completed += 1
         
             except:
-                print(f'index {index} failed to scrape')
                 index += 1
                 continue
         

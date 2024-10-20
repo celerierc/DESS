@@ -15,19 +15,21 @@ def populate_raw_text(df: pd.DataFrame, driver, snapshots: int) -> pd.Series:
         nonlocal count
         count += 1
         print(f"\t row #{count}")
+        # print(row['id_university'])
+       
         return search.get_snapshots_from_google(driver, row['id_text'], "", snapshots)
     return df.apply(fetch_raw_text, axis=1)
 
 
 def populate_faculty_columns(df: pd.DataFrame):
     """Populates the isFaculty and department columns in the DataFrame."""
-    df[['isFaculty', 'department']] = df.apply(
+    df[['isProfessor', 'department']] = df.apply(
         lambda row: nlp.populate_faculty_columns(row['rawText']),
         axis=1,
         result_type='expand'
     )
 
-def main(df: pd.DataFrame, driver_type: str, snapshots: int) -> pd.DataFrame:
+def main(df: pd.DataFrame, driver_type: str, snapshots: int,extract_raw_text:bool) -> pd.DataFrame:
     """
     Populates the DataFrame's rawText, isFaculty, and department columns.
 
@@ -39,12 +41,13 @@ def main(df: pd.DataFrame, driver_type: str, snapshots: int) -> pd.DataFrame:
     Returns:
         pd.DataFrame: Updated DataFrame with additional columns populated.
     """
-    driver = search.setup_driver(driver_type)
-    df['rawText'] = populate_raw_text(df, driver, snapshots)
-    driver.quit()
-    
-    # populate_faculty_columns(df)
-
+    if extract_raw_text:
+        driver = search.setup_driver(driver_type)
+        df['rawText'] = populate_raw_text(df, driver, snapshots)
+        driver.quit()
+    else:
+        populate_faculty_columns(df)
+        
     return df
 
 def test_main():
