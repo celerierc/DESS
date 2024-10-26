@@ -37,3 +37,31 @@ def get_chunk_processing_stats(df: pd.DataFrame, CHUNK_SIZE=200):
 
         processed_chunks += 1
     return "COMPLETE"
+
+def get_dataset_stats(file_path:str):
+    df = pd.read_parquet(file_path)
+    
+    total_records = len(df)
+    df_isProfessor = df[df['isProfessor'] == True]
+    df_professorWithDept = df_isProfessor[df_isProfessor['department'] != 'MISSING']
+
+    # Calculating Stats
+    num_professors = len(df_isProfessor)
+    num_professors_with_dept = len(df_professorWithDept)
+    percent_with_dept = (num_professors_with_dept / num_professors) * 100 if num_professors else 0
+
+    # Output stats
+    print(f"\n ________________________________________________ ")
+    print(f"|{'STATS FOR: ' + file_path:^48}|")
+    print(f"|________________________________________________|")
+    print(f"|============= Professor Statistics =============|")
+    print(f"{'|Total Number of Records:':<41} {total_records:<7}|")
+    print(f"{'|Number of Professors:':<41} {num_professors:<7}|")
+    print(f"{'|Number of Professors with Department:':<41} {num_professors_with_dept:<7}|")
+    print(f"{'|Number of Professors without Department:':<41} {(num_professors - num_professors_with_dept):<7}|")
+    print(f"|________________________________________________|")
+    print(f"|=============== Conversion Rates ===============|")
+    print(f"{'|Professor Identification Rate (%):':<41} {((num_professors / total_records) * 100):<7.2f}|")
+    print(f"{'|Department Extraction Rate (coverage %):':<41} {percent_with_dept:<7.2f}|")
+    print(f"{'|Department Coverage Gap (slippage %):':<41} {(100 - percent_with_dept):<7.2f}|")
+    print(f"|________________________________________________|")
