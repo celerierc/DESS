@@ -21,22 +21,26 @@ def get_new_rows():
 
     return df_u
 
-def append_to_file(FILE_PATH: str, df: pd.DataFrame):
-    """Appends new rows to the specified Parquet file. If the file doesn't exist, creates it."""
-    if os.path.exists(FILE_PATH):
-        print(f"APPENDING TO FILE: {FILE_PATH}")
-        existing_df = pd.read_parquet(FILE_PATH)
-        df = pd.concat([existing_df, df], ignore_index=True)
+def write_to_file(file_path: str, df: pd.DataFrame, overwrite: bool = False):
+    """Writes DataFrame to a Parquet file, either overwriting or 
+    appending to the file if it exists."""
+    if overwrite or not os.path.exists(file_path):
+        action = "CREATING NEW FILE"
     else:
-        print(f"CREATING NEW FILE: {FILE_PATH}")
+        action = "APPENDING TO FILE"
+        existing_df = pd.read_parquet(file_path)
+        df = pd.concat([existing_df, df], ignore_index=True)
+    
+    print(f"{action}: {file_path}")
+    df.to_parquet(file_path)
 
-    df.to_parquet(FILE_PATH, version=118)
 
-
-def add_dess_columns(df: pd.DataFrame):
+def prepare_dess_data_structure(df: pd.DataFrame):
     """Adds custom DESS-related columns to the given DataFrame. This may change
     but generally includes: 'isProfessor', 'isProfessor2', 'rawText', and 'department'."""
     print(df.columns)
+     # Normalize formatting in the 'id_text' column
+    df['id_text'] = df['id_text'].str.strip()
     # Add new empty columns directly to the DataFrame
     df['isProfessor'] = None
     df['isProfessor2'] = None
@@ -47,7 +51,7 @@ def add_dess_columns(df: pd.DataFrame):
 
 def get_merged_data_from_parallel_scrape(df1: pd.DataFrame, df2: pd.DataFrame, split_ratio: float =0.5):
     """Merges two DataFrames that were scraped in parallel to populate different sections of rawText."""
-    if df1.shape != df2.shape or not df1.columns.equals(df2.columns):
+    if df1.shape != df2.shape or set(df1.columns) != set(df2.columns):
         raise ValueError("DataFrames must have the same shape and columns to be merged.")
     
     split_index = int(len(df1) * split_ratio)
@@ -129,6 +133,5 @@ def _get_output_file():
     df = df.drop(columns='rawText')
     df = df[df['department'] != 'MISSING']
     stata_file_path = os.path.join(STORAGE_DIR, 'complete.dta')
-    df.to_stata(stata_file_path)
+    df.to_stata(stata_file_path, version=118)
     print(f"Successfully generated {stata_file_path}")
-    return stata_file_path
