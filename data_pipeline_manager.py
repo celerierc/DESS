@@ -34,7 +34,6 @@ def write_to_file(file_path: str, df: pd.DataFrame, overwrite: bool = False):
     print(f"{action}: {file_path}")
     df.to_parquet(file_path)
 
-
 def prepare_dess_data_structure(df: pd.DataFrame):
     """Adds custom DESS-related columns to the given DataFrame. This may change
     but generally includes: 'isProfessor', 'isProfessor2', 'rawText', and 'department'."""
@@ -47,7 +46,6 @@ def prepare_dess_data_structure(df: pd.DataFrame):
     df['rawText'] = None           
     df['department'] = ""
     return df
-
 
 def get_merged_data_from_parallel_scrape(df1: pd.DataFrame, df2: pd.DataFrame, split_ratio: float =0.5):
     """Merges two DataFrames that were scraped in parallel to populate different sections of rawText."""
@@ -95,19 +93,16 @@ def _safe_merge(df_master: pd.DataFrame, df: pd.DataFrame, col_name: str = 'id_t
     return df_combined, conflicts
 
 def orchestrate_upload_workflow():
-    # TODO: test & document
     for file_name in os.listdir(STORAGE_DIR):
-        if file_name.endswith('.parquet'):
-            file_path = os.path.join(STORAGE_DIR, file_name)
-        
+        if file_name == "input.dta" or file_name.startswith("."):
+            print(f"Skipping: {file_name}")
+            continue
+        print(f'Uploading: {file_name}')
+        file_path = os.path.join(STORAGE_DIR, file_name)
         _upload_file_to_dropbox(file_path)
-        if file_name == 'complete.parquet':
-            stata_file_path = _get_output_file()
-            _upload_file_to_dropbox(stata_file_path)
 
 def _upload_file_to_dropbox(file_path):
     """Uploads a file to Dropbox."""
-    # TODO: test this function.
     access_token = os.getenv("DROPBOX_ACCESS_TOKEN")
     dropbox_folder = os.getenv("DROPBOX_FOLDER")
     file_name = os.path.basename(file_path)
@@ -122,16 +117,15 @@ def _upload_file_to_dropbox(file_path):
     try:
         with open(file_path, 'rb') as f:
             dbx.files_upload(f.read(), upload_path)
-        print(f"Successfully uploaded {file_name} to {upload_path}")
+        print(f"\tSuccessfully uploaded {file_name} to {upload_path}")
     except Exception as e:
         print(f"Error uploading {file_name} to Dropbox: {e}")
     
-
-def _get_output_file():
+def create_stata_output_file(file_name: str="complete.dta"):
     """Reads the complete Parquet file and does some post-processing to ensure stata conversion is optimized."""
     df = pd.read_parquet(f"{STORAGE_DIR}/complete.parquet")
     df = df.drop(columns='rawText')
     df = df[df['department'] != 'MISSING']
-    stata_file_path = os.path.join(STORAGE_DIR, 'complete.dta')
+    stata_file_path = os.path.join(STORAGE_DIR, file_name)
     df.to_stata(stata_file_path, version=118)
     print(f"Successfully generated {stata_file_path}")
