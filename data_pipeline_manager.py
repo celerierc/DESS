@@ -13,11 +13,10 @@ def get_new_rows():
     df_master = pd.read_stata(f"{STORAGE_DIR}/input.dta")
     df_c = pd.read_parquet(f"{STORAGE_DIR}/complete.parquet")
     df_r = pd.read_parquet(f"{STORAGE_DIR}/reprocess.parquet")
+    # Combine id_text values from df_c and df_r into a single set
+    id_text_set = set(df_c['id_text'].astype(str)).union(set(df_r['id_text'].astype(str)))
 
-    df_u = df_master[
-        ~df_master['id_text'].isin(df_c['id_text']) & 
-        ~df_master['id_text'].isin(df_r['id_text'])
-    ]
+    df_u = df_master[~df_master['id_text'].astype(str).isin(id_text_set)]
 
     return df_u
 
