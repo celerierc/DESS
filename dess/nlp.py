@@ -1,9 +1,9 @@
 import re
-import spacy
-from spacy.matcher import Matcher
+# import spacy
+# from spacy.matcher import Matcher
 
-nlp = spacy.load("en_core_web_sm")
-matcher = Matcher(nlp.vocab)
+# nlp = spacy.load("en_core_web_sm")
+# matcher = Matcher(nlp.vocab)
 
 
 # Define patterns to match department-related phrases
@@ -17,12 +17,12 @@ patterns = [
 ]
 
 # Add the patterns to the matcher
-matcher.add("DEPARTMENT_PATTERNS", patterns)
+# matcher.add("DEPARTMENT_PATTERNS", patterns)
 
 def populate_faculty_columns(rawText: list[str]):
-    department = extract_department(rawText)
-    isFaculty = extract_professor_in_text(rawText)
-    return isFaculty, department
+    department,isProfessor2 = extract_department(rawText)
+    isProfessor = extract_professor_in_text(rawText)
+    return isProfessor, department,isProfessor2
 
 def extract_professor_in_text(rawText: list[str]) -> str:
     if rawText is None: return False
@@ -68,9 +68,11 @@ def extract_department_regex_old(rawText):
 
 def extract_department_regex(rawText):
     primary_patterns = [
+        r'professor of the ([A-Za-z]+)',
+        r'professor in the ([A-Za-z]+)',
         r'professor of ([A-Za-z]+)',              # Professor of + first word
         r'department of ([A-Za-z]+)',             # Department of + first word
-        r'professor in the ([A-Za-z]+)'           # Professor in the + first word
+              # Professor in the + first word
     ]
 
     backup_patterns = [
@@ -80,8 +82,8 @@ def extract_department_regex(rawText):
         r'in the area of ([A-Za-z]+)',            # In the area of + first word
         r'research primarily focused on ([A-Za-z]+)'  # Research primarily focused on + first word
     ]
-
-    if rawText is None: return "MISSING"
+    isProfessor2 = False
+    if rawText is None: return "MISSING",isProfessor2
     
     #concat_str_lst = [" ".join(rawText)]
     # Iterating over snapshots and trying primary patterns
@@ -90,16 +92,17 @@ def extract_department_regex(rawText):
         for pattern in primary_patterns:
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
-                return match.group(1).strip()
+                isProfessor2 = True #Found in primary pattern
+                return match.group(1).strip(),isProfessor2
 
     # Iterating over snapshots and trying backup patterns
     for text in rawText:
         for pattern in backup_patterns:
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
-                return match.group(1).strip()
+                return match.group(1).strip(),isProfessor2
 
-    return "MISSING"    
+    return "MISSING",isProfessor2    
 
 def extract_department_spacy(rawText):
     if rawText is None: return "MISSING"
