@@ -162,7 +162,7 @@ def main(start_index: int):
     start = time.time()
     for i in range(start_index, len(df), CHUNK_SIZE):
         chunk = df.iloc[i:i + CHUNK_SIZE].copy()
-        chunk = search(chunk, 'firefox', 4)
+        search(chunk, 'firefox', 4)
         df.iloc[i:i + CHUNK_SIZE, df.columns.get_loc('rawText')] = chunk['rawText']
         df.to_parquet(LOCAL_PARQUET_PATH, index=False)
         current_time = time.time()
