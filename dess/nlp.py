@@ -1,5 +1,6 @@
 import re
 import pandas as pd
+import pickle
 
 isProfessor_criteria = ["professor","faculty","chair","dean","head"]
 isInstructor_criteria = ["instructor","educator","adjunct"]
@@ -12,7 +13,9 @@ isResearcher_criteria = ["research","citations","examine","investigate"]
 
 def extract_department_information(df: pd.DataFrame):
     """Populates the isFaculty and department columns in the DataFrame."""
-    df[['isProfessor', 'isInstructor', 'isEmeritus', 'isAssistantProf', 'isAssociateProf', 'isFullProf', 'isClinicalProf', 'isResearcher', 'teaching_intensity', 'isProfessor2', 'department']] = df.apply(
+    df[['isProfessor', 'isInstructor', 'isEmeritus', 'isAssistantProf', 
+        'isAssociateProf', 'isFullProf', 'isClinicalProf', 'isResearcher', 
+        'teaching_intensity', 'isProfessor2', 'department']] =  df.apply(
         lambda row: populate_faculty_columns(row['rawText']),
         axis=1,
         result_type='expand'
@@ -20,8 +23,8 @@ def extract_department_information(df: pd.DataFrame):
 
 def populate_faculty_columns(rawText: list[str]):
     department, isProfessor2 = extract_department_regex(rawText)
-    # isProfessor, = extract_professor_in_text(rawText)
-    return  extract_professor_in_text(rawText), isProfessor2, department
+    flags = extract_professor_in_text(rawText)
+    return  (*flags, isProfessor2, department)
 
 def extract_professor_in_text(rawText: list[str]) -> str:
     if rawText is None:
@@ -46,8 +49,8 @@ def extract_professor_in_text(rawText: list[str]) -> str:
         for flag, criteria in criteria_flags.items():
             if flags[flag] == False and lookup_criteria(text, criteria):
                 flags[flag] = True
-                
-    return (*flags.values(), teaching_intensity)
+
+    return  tuple(flags.values()) + (teaching_intensity,)
 
 def count_teaching_intensity(text: str) -> int:
     '''
@@ -63,12 +66,20 @@ def lookup_criteria(text: str, criteria: list[str]) -> bool:
     return False
 
 def extract_department_regex(rawText):
+    #  todo: figure out conditional matching (?:the)?(?department)
     primary_patterns = [
-        r'professor of the ([A-Za-z]+)',
-        r'professor in the ([A-Za-z]+)',
-        r'professor of ([A-Za-z]+)',              # Professor of + first word
-        r'department of ([A-Za-z]+)',             # Department of + first word
-              # Professor in the + first word
+        r'professor of the ([A-Za-z]+)',         # Matches "professor of the X" or "professor of X"
+        r'professor of ([A-Za-z]+)',         # Matches "professor of the X" or "professor of X"
+        r'professor in the ([A-Za-z]+)',         # Matches "professor in the X" or "professor in X"
+        r'professor in ([A-Za-z]+)',         # Matches "professor in the X" or "professor in X"
+        r'Chair in the ([A-Za-z]+)',             # Matches "Chair in the X" or "Chair in X"
+        r'Chair in ([A-Za-z]+)',             # Matches "Chair in the X" or "Chair in X"
+        r'professor emeritus of the ([A-Za-z]+)', # Matches "professor emeritus of the X" or "professor emeritus of X"
+        r'professor emeritus of ([A-Za-z]+)', # Matches "professor emeritus of the X" or "professor emeritus of X"
+        r'professor emerita of the ([A-Za-z]+)',  # Matches "professor emerita of the X" or "professor emerita of X"
+        r'professor emerita of ([A-Za-z]+)',  # Matches "professor emerita of the X" or "professor emerita of X"
+        r'Faculty of the ([A-Za-z]+)'
+        r'Faculty of ([A-Za-z]+)'
     ]
 
     backup_patterns = [
@@ -82,10 +93,31 @@ def extract_department_regex(rawText):
     if rawText is None: return "MISSING", isProfessor2    
     # Iterating over snapshots and trying primary patterns
     for text in rawText:
-        #print(text)
         for pattern in primary_patterns:
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
                 isProfessor2 = True #Found in primary pattern
                 return match.group(1).strip(),isProfessor2
-    return "MISSING", isProfessor2
+            
+    # Iterating over snapshots and trying backup patterns
+    for text in rawText:
+        for pattern in backup_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                return match.group(1).strip(), isProfessor2
+            
+    # Iterating over snapshots and trying to match with whitelist files
+    return extract_with_fuzzy_matching(rawText)
+
+def _load_department_names(file_path):
+    with open(file_path, 'rb') as f:
+        department_names = pickle.load(f)
+    return department_names
+
+def extract_with_fuzzy_matching(rawText):
+    DEPARTMENT_WHITELIST = _load_department_names("storage/department-whitelist.pkl")
+
+    for text in rawText:
+        for department in DEPARTMENT_WHITELIST:
+            if department in text.lower(): return department, False
+    return "MISSING", False

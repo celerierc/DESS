@@ -64,14 +64,14 @@ def update_internal_files(df_c: pd.DataFrame, df_r: pd.DataFrame, df_u: pd.DataF
 
     # Merging to complete.parquet + error checking
     updated_df_c, completed_conflicts = _safe_merge(df_c, new_non_empty_rawText_rows)
-    if completed_conflicts:
+    if len(completed_conflicts):
         error_file_path = os.path.join(STORAGE_DIR, 'completed_conflicts.csv')
         completed_conflicts.to_csv(error_file_path, index = False)
         print(f"{len(completed_conflicts)} conflicts found updating complete.parquet. Conflicting rows saved to {error_file_path}.")
 
     # Merging to reprocess.parquet + error checking
     updated_df_r, reprocess_conflicts = _safe_merge(df_r, new_empty_rawText_rows)
-    if reprocess_conflicts:
+    if len(reprocess_conflicts):
         error_file_path = os.path.join(STORAGE_DIR, 'reprocess_conflicts.csv')
         reprocess_conflicts.to_csv(error_file_path, index = False)
         print(f"{len(reprocess_conflicts)} conflicts found updating complete.parquet. Conflicting rows saved to {error_file_path}.")
@@ -81,7 +81,7 @@ def update_internal_files(df_c: pd.DataFrame, df_r: pd.DataFrame, df_u: pd.DataF
 def _safe_merge(df_master: pd.DataFrame, df: pd.DataFrame, col_name: str = 'id_text'):
     """Concatenates df to df_master, avoiding duplicate id_text entries."""
     conflicting_ids = df[col_name].isin(df_master[col_name])
-    conflicts = df.loc[conflicting_ids, col_name].tolist()
+    conflicts = df.loc[conflicting_ids, col_name]
     
     # Filter df to only non-conflicting rows
     df_to_add = df[~df[col_name].isin(conflicts)]
@@ -124,7 +124,6 @@ def create_stata_output_file(file_name: str="complete.dta"):
     """Reads the complete Parquet file and does some post-processing to ensure stata conversion is optimized."""
     df = pd.read_parquet(f"{STORAGE_DIR}/complete.parquet")
     df = df.drop(columns='rawText')
-    df = df[df['department'] != 'MISSING']
     stata_file_path = os.path.join(STORAGE_DIR, file_name)
     df.to_stata(stata_file_path, version=118)
     print(f"Successfully generated {stata_file_path}")
