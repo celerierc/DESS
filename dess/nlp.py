@@ -1,9 +1,18 @@
 import re
 import pandas as pd
 
+isProfessor_criteria = ["professor","faculty","chair","dean","head"]
+isInstructor_criteria = ["instructor","educator","adjunct"]
+isEmeritus_criteria = ["emiritus","emerita"]
+isAssistantProf_criteria = ["assistant"]
+isAssociateProf_criteria = ["associate"]
+isFullProf_criteria = ["full"]
+isClinicalProf_criteria = ["clinical"]
+isResearcher_criteria = ["research","citations","examine","investigate"]
+
 def extract_department_information(df: pd.DataFrame):
     """Populates the isFaculty and department columns in the DataFrame."""
-    df[['isProfessor', 'isProfessor2', 'department']] = df.apply(
+    df[['isProfessor', 'isInstructor', 'isEmeritus', 'isAssistantProf', 'isAssociateProf', 'isFullProf', 'isClinicalProf', 'isResearcher', 'teaching_intensity', 'isProfessor2', 'department']] = df.apply(
         lambda row: populate_faculty_columns(row['rawText']),
         axis=1,
         result_type='expand'
@@ -11,13 +20,46 @@ def extract_department_information(df: pd.DataFrame):
 
 def populate_faculty_columns(rawText: list[str]):
     department, isProfessor2 = extract_department_regex(rawText)
-    isFaculty = extract_professor_in_text(rawText)
-    return isFaculty, isProfessor2, department
+    # isProfessor, = extract_professor_in_text(rawText)
+    return  extract_professor_in_text(rawText), isProfessor2, department
 
 def extract_professor_in_text(rawText: list[str]) -> str:
-    if rawText is None: return False
+    if rawText is None:
+        return False, False, False, False, False, False, False, False, 0
+    # Define criteria and their corresponding flags
+    criteria_flags = {
+        "isProfessor": isProfessor_criteria,
+        "isInstructor": isInstructor_criteria,
+        "isEmeritus": isEmeritus_criteria,
+        "isAssistantProf": isAssistantProf_criteria,
+        "isAssociateProf": isAssociateProf_criteria,
+        "isFullProf": isFullProf_criteria,
+        "isClinicalProf": isClinicalProf_criteria,
+        "isResearcher": isResearcher_criteria,
+    }
+
+    flags = {key: False for key in criteria_flags.keys()}
+    teaching_intensity = 0
+
     for text in rawText:
-        if 'professor' in text.lower(): return True
+        teaching_intensity += count_teaching_intensity(text)
+        for flag, criteria in criteria_flags.items():
+            if flags[flag] == False and lookup_criteria(text, criteria):
+                flags[flag] = True
+                
+    return (*flags.values(), teaching_intensity)
+
+def count_teaching_intensity(text: str) -> int:
+    '''
+    Counts the number of times the word teach appears in the text using regex
+    '''
+    matches = re.findall(r'\bteach\w*', text, re.IGNORECASE)
+    return len(matches)
+    
+def lookup_criteria(text: str, criteria: list[str]) -> bool:
+    for criterion in criteria:
+        if criterion in text.lower():
+            return True
     return False
 
 def extract_department_regex(rawText):
@@ -37,10 +79,7 @@ def extract_department_regex(rawText):
         r'research primarily focused on ([A-Za-z]+)'  # Research primarily focused on + first word
     ]
     isProfessor2 = False
-    if rawText is None: return "MISSING", isProfessor2
-    isProfessor2 = False
-    if rawText is None: return "MISSING",isProfessor2
-    
+    if rawText is None: return "MISSING", isProfessor2    
     # Iterating over snapshots and trying primary patterns
     for text in rawText:
         #print(text)
@@ -49,14 +88,4 @@ def extract_department_regex(rawText):
             if match:
                 isProfessor2 = True #Found in primary pattern
                 return match.group(1).strip(),isProfessor2
-                isProfessor2 = True #Found in primary pattern
-                return match.group(1).strip(), isProfessor2
-
-    # Iterating over snapshots and trying backup patterns
-    for text in rawText:
-        for pattern in backup_patterns:
-            match = re.search(pattern, text, re.IGNORECASE)
-            if match:
-                return match.group(1).strip(), isProfessor2
-
     return "MISSING", isProfessor2
