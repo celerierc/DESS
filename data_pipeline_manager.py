@@ -127,3 +127,16 @@ def create_stata_output_file(file_name: str="complete.dta"):
     stata_file_path = os.path.join(STORAGE_DIR, file_name)
     df.to_stata(stata_file_path, version=118)
     print(f"Successfully generated {stata_file_path}")
+
+def import_files_from_dropbox():
+    """Imports files from Dropbox into the storage directory."""
+    access_token = os.getenv("DROPBOX_ACCESS_TOKEN")
+    dropbox_folder = os.getenv("DROPBOX_FOLDER")
+    
+    # Read & download files from Dropbox
+    dbx = dropbox.Dropbox(access_token)
+    files = dbx.files_list_folder(f'/{dropbox_folder}/')
+    for file in files.entries:
+        if file.name.endswith('.parquet'):
+            print(f"Downloading {file.path_lower}")
+            dbx.files_download_to_file(os.path.join(STORAGE_DIR, file.name), file.path_lower)
