@@ -91,16 +91,16 @@ def _safe_merge(df_master: pd.DataFrame, df: pd.DataFrame, col_name: str = 'id_t
     
     return df_combined, conflicts
 
-def orchestrate_upload_workflow():
+def orchestrate_upload_workflow(overwrite=False):
     for file_name in os.listdir(STORAGE_DIR):
         if file_name == "input.dta" or file_name.startswith("."):
             print(f"Skipping: {file_name}")
             continue
         print(f'Uploading: {file_name}')
         file_path = os.path.join(STORAGE_DIR, file_name)
-        _upload_file_to_dropbox(file_path)
+        _upload_file_to_dropbox(file_path, overwrite)
 
-def _upload_file_to_dropbox(file_path):
+def _upload_file_to_dropbox(file_path, overwrite=False):
     """Uploads a file to Dropbox."""
     access_token = os.getenv("DROPBOX_ACCESS_TOKEN")
     dropbox_folder = os.getenv("DROPBOX_FOLDER")
@@ -115,7 +115,8 @@ def _upload_file_to_dropbox(file_path):
 
     try:
         with open(file_path, 'rb') as f:
-            dbx.files_upload(f.read(), upload_path)
+            mode = dropbox.files.WriteMode.overwrite if overwrite else dropbox.files.WriteMode.add
+            dbx.files_upload(f.read(), upload_path, mode=mode)
         print(f"\tSuccessfully uploaded {file_name} to {upload_path}")
     except Exception as e:
         print(f"Error uploading {file_name} to Dropbox: {e}")
@@ -140,3 +141,10 @@ def import_files_from_dropbox():
         if file.name.endswith('.parquet'):
             print(f"Downloading {file.path_lower}")
             dbx.files_download_to_file(os.path.join(STORAGE_DIR, file.name), file.path_lower)
+
+def generate_sample_output_file(filename='sample.xlsx', n_samples=200):
+    """Reads the complete Parquet file, randomly samples n_samples rows, and writes to an Excel file."""
+    df = pd.read_parquet(f"{STORAGE_DIR}/complete.parquet")
+    sample_df = df.sample(n=n_samples, random_state=1)  # random_state for reproducibility
+    sample_df.to_excel(os.path.join(STORAGE_DIR, filename), index=False)
+    print(f"Successfully generated {filename} with {n_samples} samples.")
