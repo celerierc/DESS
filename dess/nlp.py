@@ -8,7 +8,7 @@ import pickle
 # criteria associated with dummy variables
 CRITERIA_FLAGS = {
     'isProfessor': ["professor", "faculty", "chair", "dean", "head"],
-    'isInstructor': ["instructor", "educator", "adjunct"],
+    'isInstructor': ["instructor", "educator", "adjunct", "lecturer"], 
     'isEmeritus': ["emiritus", "emerita"],
     'isAssistantProf': ["assistant"],
     'isAssociateProf': ["associate"],
@@ -21,19 +21,26 @@ CRITERIA_FLAGS = {
 DEPARTMENT_PATTERNS = {
     # Primary patterns - indicate professor role (sets isProfessor2=True)
     'primary': [
-        r'professor (?:of|in)(?: the)? ([A-Za-z]+)',
-        r'Chair in(?: the)? ([A-Za-z]+)', 
-        r'professor emerit(?:us|a) of(?: the)? ([A-Za-z]+)',
-        r'Faculty of(?: the)? ([A-Za-z]+)',
-        r'(?:in the )?department of(?: the)? ([A-Za-z]+)'
+    r'professor in the department of(?: the)? ([A-Za-z]+)',
+    r'in the ([A-Za-z]+) department',
+    r'is (?:a|an) ([A-Za-z]+) professor',
+    r'(?:in the )?department(?:s|.)? of(?: the|.)? ([A-Za-z]+)',
+    r'professor (?:of|in)(?: the)? ([A-Za-z]+)',
+    r'chair in(?: the)? ([A-Za-z]+)', 
+    r'professor emerit(?:us|a) of(?: the)? ([A-Za-z]+)',
+    r'faculty of(?: the)? ([A-Za-z]+)'
     ],
         
     # Backup patterns - contextual department mentions
     'backup': [
-        r'(?:school|college) of (?: the)?([A-Za-z]+)',
         r'book on (?: the)?([A-Za-z]+)',
         r'in the area of (?: the)?([A-Za-z]+)',
-        r'research primarily focused on (?: the)?([A-Za-z]+)'
+        r'research (?: primarily)? focused on (?: the)?([A-Za-z]+)'
+        r'research focus(?: es)? on (?: the)?([A-Za-z]+)'
+        r'expert in (?: the)?([A-Za-z]+)',
+        r'(?:school|college) of (?: the)?([A-Za-z]+)',
+        r'center for (?: the)?([A-Za-z]+)',
+        r'ph(?:\.|d)?\.? (?:the|in)? ([A-Za-z]+)'
     ]
 }
 
@@ -41,6 +48,8 @@ DEPARTMENT_PATTERNS = {
 IGNORE_TERMS = ['the', 'department']
 
 # ------------------------------------------------------------------------------
+
+rawText = rawText.lower()
 
 def extract_department_information(df: pd.DataFrame):
     """Populates the isFaculty and department columns in the DataFrame."""
