@@ -24,7 +24,8 @@ DEPARTMENT_PATTERNS = {
         r'professor (?:of|in)(?: the)? ([A-Za-z]+)',
         r'Chair in(?: the)? ([A-Za-z]+)', 
         r'professor emerit(?:us|a) of(?: the)? ([A-Za-z]+)',
-        r'Faculty of(?: the)? ([A-Za-z]+)'
+        r'Faculty of(?: the)? ([A-Za-z]+)',
+        r'(?:in the )?department of(?: the)? ([A-Za-z]+)'
     ],
         
     # Backup patterns - contextual department mentions
