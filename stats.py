@@ -43,12 +43,19 @@ def get_dataset_stats(file_path:str):
     
     total_records = len(df)
     df_isProfessor = df[df['isProfessor'] == True]
-    df_professorWithDept = df_isProfessor[df_isProfessor['department'] != 'MISSING']
+    df_professorWithDept_textual = df_isProfessor[df_isProfessor['department_textual'] != 'MISSING']
+    df_professorWithDept_keyword = df_isProfessor[df_isProfessor['department_keyword'] != 'MISSING']
+    df_professorWithDept_either = df_isProfessor[
+        (df_isProfessor['department_textual'] != 'MISSING') | 
+        (df_isProfessor['department_keyword'] != 'MISSING')
+    ]
 
     # Calculating Stats
     num_professors = len(df_isProfessor)
-    num_professors_with_dept = len(df_professorWithDept)
-    percent_with_dept = (num_professors_with_dept / num_professors) * 100 if num_professors else 0
+    num_professors_with_dept_textual = len(df_professorWithDept_textual)
+    num_professors_with_dept_keyword = len(df_professorWithDept_keyword)
+    num_professors_with_dept_either = len(df_professorWithDept_either)
+    percent_with_dept = (num_professors_with_dept_either / num_professors) * 100 if num_professors else 0
 
     # Output stats
     print(f"\n ________________________________________________ ")
@@ -57,8 +64,9 @@ def get_dataset_stats(file_path:str):
     print(f"|============= Professor Statistics =============|")
     print(f"{'|Total Number of Records:':<41} {total_records:<7}|")
     print(f"{'|Number of Professors:':<41} {num_professors:<7}|")
-    print(f"{'|Number of Professors with Department:':<41} {num_professors_with_dept:<7}|")
-    print(f"{'|Number of Professors without Department:':<41} {(num_professors - num_professors_with_dept):<7}|")
+    print(f"{'|Professors with Department (textual):':<41} {num_professors_with_dept_textual:<7}|")
+    print(f"{'|Professors with Department (keyword):':<41} {(num_professors_with_dept_keyword):<7}|")
+    print(f"{'|Number of Professors without:':<41} {(num_professors - num_professors_with_dept_either):<7}|")
     print(f"|________________________________________________|")
     print(f"|=============== Conversion Rates ===============|")
     print(f"{'|Professor Identification Rate (%):':<41} {((num_professors / total_records) * 100):<7.2f}|")
