@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 from dotenv import load_dotenv
 import dropbox
+from dropbox import DropboxOAuth2FlowNoRedirect
 
 load_dotenv()
 
@@ -91,27 +92,64 @@ def _safe_merge(df_master: pd.DataFrame, df: pd.DataFrame, col_name: str = 'id_t
     
     return df_combined, conflicts
 
-def orchestrate_upload_workflow(overwrite=False):
+def dropbox_oauth():
+    auth_flow = DropboxOAuth2FlowNoRedirect(os.getenv("DROPBOX_APP_KEY"), os.getenv("DROPBOX_APP_SECRET"))
+
+    authorize_url = auth_flow.start()
+    print("1. Go to: " + authorize_url)
+    print("2. Click \"Allow\" (you might have to log in first).")
+    print("3. Copy the authorization code.")
+    auth_code = input("Enter the authorization code here: ").strip()
+
+    try:
+        oauth_result = auth_flow.finish(auth_code)
+    except Exception as e:
+        print('Error: %s' % (e,))
+        exit(1)
+
+    with dropbox.Dropbox(oauth2_access_token=oauth_result.access_token) as dbx:
+        dbx.users_get_current_account()
+        print("Successfully set up client!")
+        return dbx
+
+def orchestrate_upload_workflow(overwrite=False, client=None):
     for file_name in os.listdir(STORAGE_DIR):
         if file_name == "input.dta" or file_name.startswith("."):
             print(f"Skipping: {file_name}")
             continue
         print(f'Uploading: {file_name}')
         file_path = os.path.join(STORAGE_DIR, file_name)
-        _upload_file_to_dropbox(file_path, overwrite)
+        _upload_file_to_dropbox(client, file_path, overwrite)
 
-def _upload_file_to_dropbox(file_path, overwrite=False):
+def _upload_file_to_dropbox(client, file_path, overwrite=False):
     """Uploads a file to Dropbox."""
-    access_token = os.getenv("DROPBOX_ACCESS_TOKEN")
+    # Finding upload path
     dropbox_folder = os.getenv("DROPBOX_FOLDER")
     file_name = os.path.basename(file_path)
-
     upload_path = f"/{dropbox_folder}/{file_name}"
 
-    if not access_token or not dropbox_folder:
-        raise ValueError("Access token and Dropbox folder must be set in the .env file.")
-    
-    dbx = dropbox.Dropbox(access_token) # dropbox client
+    if not dropbox_folder:
+        raise ValueError("Dropbox folder must be set in the .env file.")
+
+    # Configuring dropbox client
+    if client: # if OAuth is successful
+        dbx = client
+    else:
+        access_token = os.getenv("DROPBOX_ACCESS_TOKEN")
+        if not access_token:
+            raise ValueError("Access token must be set in the .env file.")
+        dbx = dropbox.Dropbox(access_token) # dropbox client
+
+    # Check if the file already exists in Dropbox
+    try:
+        dbx.files_get_metadata(upload_path)
+        if overwrite:
+            confirm = input(f"{file_name} already exists. Do you want to overwrite it? (y/n): ").strip().lower()
+            if confirm != 'y':
+                print(f"Skipping upload of {file_name}.")
+                return
+    except dropbox.exceptions.ApiError as e:
+        print(f"NEW FILE FOUND: {file_name}")
 
     try:
         with open(file_path, 'rb') as f:
@@ -129,13 +167,16 @@ def create_stata_output_file(file_name: str="complete.dta"):
     df.to_stata(stata_file_path, version=118)
     print(f"Successfully generated {stata_file_path}")
 
-def import_files_from_dropbox():
+def import_files_from_dropbox(client=None):
     """Imports files from Dropbox into the storage directory."""
-    access_token = os.getenv("DROPBOX_ACCESS_TOKEN")
-    dropbox_folder = os.getenv("DROPBOX_FOLDER")
+    if client:
+        dbx = client
+    else:
+        access_token = os.getenv("DROPBOX_ACCESS_TOKEN")
+        # Read & download files from Dropbox
+        dbx = dropbox.Dropbox(access_token)
     
-    # Read & download files from Dropbox
-    dbx = dropbox.Dropbox(access_token)
+    dropbox_folder = os.getenv("DROPBOX_FOLDER")
     files = dbx.files_list_folder(f'/{dropbox_folder}/')
     for file in files.entries:
         if file.name.endswith('.parquet'):
@@ -145,6 +186,6 @@ def import_files_from_dropbox():
 def generate_sample_output_file(filename='sample.xlsx', n_samples=200):
     """Reads the complete Parquet file, randomly samples n_samples rows, and writes to an Excel file."""
     df = pd.read_parquet(f"{STORAGE_DIR}/complete.parquet")
-    sample_df = df.sample(n=n_samples, random_state=1)  # random_state for reproducibility
+    sample_df = df.sample(n=n_samples)
     sample_df.to_excel(os.path.join(STORAGE_DIR, filename), index=False)
     print(f"Successfully generated {filename} with {n_samples} samples.")
