@@ -17,7 +17,7 @@ import time
 import os
 import argparse
 
-LOCAL_PARQUET_PATH = 'storage/uncomplete.parquet'
+LOCAL_PARQUET_PATH = '../storage/uncomplete_random_scraper_test.parquet'
 CHUNK_SIZE = 200
 
 def setup_driver(driver_type: str) -> webdriver:
@@ -83,18 +83,22 @@ def get_snapshots_from_google(driver: webdriver, search_query:str, snapshots:int
         #This will contain the raw text from the search results
         feature_vector = []
         results = driver.find_elements(By.XPATH, '//div[@class="sATSHe"]')
+        h3_elements = driver.find_elements(By.XPATH,'//span/a/h3[@class="LC20lb MBeuO DKV0Md"]')
+        span_elements = driver.find_elements(By.XPATH,'//div/span[@class="VuuXrf"]')
         if len(results)<snapshots:
             #Use a different xpath
-            results = driver.find_elements(By.XPATH, '//div[@class="MjjYud"]')
-        #print(f'Length of the div list is = {len(results)}')
+            results = driver.find_elements(By.XPATH, '//div[@class="MjjYud"]')            
         no_of_wanted_results = snapshots
         completed = 0
         index = 0
         while completed != no_of_wanted_results:
             div_element = results[index]
+            h3_element =  h3_elements[index]
+            span_element = span_elements[index]
             try:
-                
                 div_text = div_element.text
+                title = h3_element.text
+                span_text_1 = span_element.text
                 span_text = div_element.find_element(By.XPATH, './/span').text
                 if span_text == 'People also ask':
                     index += 1
@@ -102,8 +106,11 @@ def get_snapshots_from_google(driver: webdriver, search_query:str, snapshots:int
                 elif 'People also ask' in div_text:
                     index += 1
                     continue
-                feature_vector.append(parse_text(div_text))
-                
+                elif 'Rate My Professors' in span_text_1:
+                    index+=1
+                    continue
+                rawText = title+" "+parse_text(div_text)
+                feature_vector.append(rawText)
                 completed += 1
         
             except:
@@ -120,6 +127,9 @@ def get_snapshots_from_google(driver: webdriver, search_query:str, snapshots:int
 
 def parse_text(text: str):
     text = text.split('\n')
+    if len(text)>=2:
+        if len(text[-2].strip())>len(text[-1].strip()):
+            return text[-2].strip()
     return text[-1].strip()
 
 def populate_raw_text(df: pd.DataFrame, driver, snapshots: int) -> pd.Series:
@@ -178,9 +188,18 @@ def test_main():
     })
     test_df = populate_raw_text(test_df, _create_firefox_driver(), 4)
     print(test_df)
+        
+def test_snapshots():
+    google_driver = setup_driver('firefox')
+    (get_snapshots_from_google(google_driver,'David Osullivan university of california-berkeley',4))
     
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Pass a start index to the script.")
     parser.add_argument("start_index", type=int, help="The index to start processing from")
     args = parser.parse_args()
     main(args.start_index)
+
+    
+
+    
+    

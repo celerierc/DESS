@@ -87,7 +87,7 @@ def populate_department_variables(rawText):
     department_textual, department_keyword, isProfessor2 = "MISSING", "MISSING", False
     
     if rawText is None:
-        return department_textual, department_keyword, isProfessor2
+        return isProfessor2, department_textual, department_keyword
     
     department_textual, isProfessor2 = _extract_department_regex(rawText)
     department_keyword = _extract_department_fuzzy_match(rawText)
