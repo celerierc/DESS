@@ -1,94 +1,144 @@
 import re
-import spacy
-from spacy.matcher import Matcher
+import pandas as pd
+import pickle
 
-nlp = spacy.load("en_core_web_sm")
-matcher = Matcher(nlp.vocab)
+# ------------------------------------------------------------------------------
+# Config
 
+# criteria associated with dummy variables
+CRITERIA_FLAGS = {
+    'isProfessor': ["professor", "faculty", "head"],
+    'isInstructor': ["instructor", "educator", "adjunct", "lecturer", "professor of teaching"],
+    'isEmeritus': ["emiritus", "emerita"],
+    'isAssistantProf': ["assistant"],
+    'isAssociateProf': ["associate"],
+    'isFullProf': ["full"],
+    'isClinicalProf': ["clinical"],
+    'isResearcher': ["research", "citations", "examine", "investigate"]
+}
 
-# Define patterns to match department-related phrases
-patterns = [
-    [{"LOWER": "lecturer"}, {"LOWER": "in"}, {"POS": "PROPN", "OP": "+"}],  # Matches "Lecturer in [Department]"
-    [{"LOWER": "professor"}, {"LOWER": "at"}, {"POS": "PROPN", "OP": "+"}],  # Matches "professor at [Department]"
-    [{"LOWER": "professor"}, {"LOWER": "in"}, {"POS": "PROPN", "OP": "+"}],  # Matches "professor in [Department]"
-    [{"LOWER": "professor"}, {"LOWER": "of"}, {"POS": "PROPN", "OP": "+"}],  # Matches "professor of [Department]"
-    [{"LOWER": "department"}, {"LOWER": "of"}, {"POS": "PROPN", "OP": "+"}],  # Matches "department of [Department]"
-    [{"LOWER": "in"}, {"LOWER": "the"}, {"POS": "PROPN", "OP": "+"}, {"LOWER": "department"}]  # Matches "in the [Department] department"
-]
+# Patterns to match department names, ordered by priority
+DEPARTMENT_PATTERNS = {
+    # Primary patterns - indicate professor role (sets isProfessor2=True)
+    'primary': [
+        r'professor in the department of(?: the| public)? ([A-Za-z]+)',
+        r'(?:of|in)(?: the| public)? ([A-Za-z]+) department',
+        r'(?:in the )?department(?:s|.)? of(?: the|.| public)? ([A-Za-z]+)',
+        r'professor (?:of|in)(?: the)? ([A-Za-z]+)',
+        r'chair in(?: the)? ([A-Za-z]+)',
+        r'professor emerit(?:us|a) of(?: the| public)? ([A-Za-z]+)',
+        r'faculty of(?: the)? ([A-Za-z]+)'
+    ],
+        
+    # Backup patterns - contextual department mentions
+    'backup': [
+        r'book on(?: the)? ([A-Za-z]+)',
+        r'in the area of(?: the)? ([A-Za-z]+)',
+        r'research(?: primarily)? focused on(?: the)? ([A-Za-z]+)'
+        r'research focus(?:es)? on(?: the)? ([A-Za-z]+)'
+        r'expert in(?: the)? ([A-Za-z]+)',
+        r'(?:school|college) of(?: the| public)? ([A-Za-z]+)',
+        r'center for(?: the)? ([A-Za-z]+)',
+        r'ph(?:\.|d)?\.? (?:the|in)? ([A-Za-z]+)',
+        r'is (?:a|an) ([A-Za-z]+) professor'
+    ]
+}
 
-# Add the patterns to the matcher
-matcher.add("DEPARTMENT_PATTERNS", patterns)
+# Words to ignore if this is the department that's extracted — minimize false positives
+IGNORE_TERMS = ['the', 'department','assistant','associate','full','special','university','adjunct','school','senior','college','emeritus']
+
+# ------------------------------------------------------------------------------
+
+def extract_department_information(df: pd.DataFrame):
+    """Populates the isFaculty and department columns in the DataFrame."""
+    df[['isProfessor', 'isInstructor', 'isEmeritus', 'isAssistantProf', 'isAssociateProf', 
+        'isFullProf', 'isClinicalProf', 'isResearcher', 'teaching_intensity', 'isProfessor2', 
+        'department_textual', 'department_keyword']] =  df.apply(
+        lambda row: populate_faculty_columns(row['rawText']),
+        axis=1,
+        result_type='expand'
+    )
 
 def populate_faculty_columns(rawText: list[str]):
-    department = extract_department(rawText)
-    isFaculty = extract_professor_in_text(rawText)
-    return isFaculty, department
+    flags = populate_dummy_variables(rawText)
+    isProfessor2, department_textual, department_keyword  = populate_department_variables(rawText)
+    return  (*flags, isProfessor2, department_textual, department_keyword)
 
-def extract_professor_in_text(rawText: list[str]) -> str:
-    if rawText is None: return False
+def populate_dummy_variables(rawText: list[str]) -> str:
+    if rawText is None:
+        return False, False, False, False, False, False, False, False, 0
+
+    flags = {key: False for key in CRITERIA_FLAGS.keys()}
+    teaching_intensity = 0
+
     for text in rawText:
-        if 'professor' in text.lower(): return True
-    return False
+        teaching_intensity += _count_teaching_intensity(text)
+        for flag, criteria in CRITERIA_FLAGS.items():
+            if flags[flag] == False and _lookup_criteria(text, criteria):
+                flags[flag] = True
 
-def extract_department(rawText: list[str]) -> str:
+    return  tuple(flags.values()) + (teaching_intensity,)
+
+def populate_department_variables(rawText):
     """
-    Extracts the academic department from the given text using specific patterns,
-    with case insensitivity for keywords and stopping conditions (e.g., punctuation or prepositions).
+    Uses regex to extract department and populates all 
+    department-related variables.
+    """
+    department_textual, department_keyword, isProfessor2 = "MISSING", "MISSING", False
     
-    Args:
-        text (list[str]): The raw text to search for department patterns.
+    if rawText is None:
+        return isProfessor2, department_textual, department_keyword
+    
+    department_textual, isProfessor2 = _extract_department_regex(rawText)
+    department_keyword = _extract_department_fuzzy_match(rawText)
 
-    Returns:
-        str: The extracted department or an empty string if no match is found.
-    """
-    return extract_department_regex(rawText)
+    return isProfessor2, department_textual, department_keyword
 
-def extract_department_regex(rawText):
-    primary_patterns = [
-        r'professor of ([A-Za-z]+)',              # Professor of + first word
-        r'department of ([A-Za-z]+)',             # Department of + first word
-        r'professor in the ([A-Za-z]+)'           # Professor in the + first word
-    ]
-
-    backup_patterns = [
-        r'school of ([A-Za-z]+)',                 # School of + first word
-        r'college of ([A-Za-z]+)',                # College of + first word
-        r'book on ([A-Za-z]+)',                   # Book on + first word
-        r'in the area of ([A-Za-z]+)',            # In the area of + first word
-        r'research primarily focused on ([A-Za-z]+)'  # Research primarily focused on + first word
-    ]
-
-    if rawText is None: return "MISSING"
-
-    # Iterating over snapshots and trying primary patterns
+def _extract_department_regex(rawText):
+    # Try primary patterns first
     for text in rawText:
-        for pattern in primary_patterns:
-            match = re.match(pattern, text, re.IGNORECASE)
-            if match:
-                return match.group(1).strip()
-
-    # Iterating over snapshots and trying backup patterns
-    for text in rawText:
-        for pattern in backup_patterns:
-            match = re.match(pattern, text, re.IGNORECASE)
-            if match:
-                return match.group(1).strip()
-
-    return "MISSING"    
-
-def extract_department_spacy(rawText):
-    if rawText is None: return "MISSING"
-    for text in rawText:
-        doc = nlp(text)  # Process the text with SpaCy
-        
-        # Find matches in the processed doc
-        matches = matcher(doc)
-        if matches:
-            for match_id, start, end in matches:
-                matched_span = doc[start:end]  # Extract the matched span
-                department = " ".join([token.text for token in matched_span if token.dep_ in ('pobj', 'attr')]).strip()
+        for pattern in DEPARTMENT_PATTERNS['primary']:
+            if match := re.search(pattern, text, re.IGNORECASE):
+                department_textual = match.group(1).strip().lower()
                 
-                if department:  # Check if a valid department was extracted
-                    return department  # Return the department if valid
+                # Skip terms in the ignore list (to avoid false positives)
+                if department_textual in IGNORE_TERMS:
+                    continue
+                return department_textual, True
+
+    # Fall back to secondary patterns            
+    for text in rawText:
+        for pattern in DEPARTMENT_PATTERNS['backup']:
+            if match := re.search(pattern, text, re.IGNORECASE):
+                department_textual = match.group(1).strip().lower()
+                
+                # Skip terms in the ignore list (to avoid false positives)
+                if department_textual in IGNORE_TERMS:
+                    continue
+                return department_textual, False
+            
+    return "MISSING", False # Fallback if no match
+
+def _load_department_names(file_path):
+    with open(file_path, 'rb') as f:
+        department_names = pickle.load(f)
+    return department_names
+
+def _extract_department_fuzzy_match(rawText):
+    DEPARTMENT_WHITELIST = _load_department_names("storage/department-whitelist.pkl")
+
+    for text in rawText:
+        for department in DEPARTMENT_WHITELIST:
+            if department in text.lower(): return department
+    return "MISSING"
+
+def _count_teaching_intensity(text: str) -> int:
+    """Counts the number of times the word teach appears in the text using regex."""
+    matches = re.findall(r'\bteach\w*', text, re.IGNORECASE)
+    return len(matches)
     
-    return "MISSING"  # No matches found in any text
+def _lookup_criteria(text: str, criteria: list[str]) -> bool:
+    for criterion in criteria:
+        if criterion in text.lower():
+            return True
+    return False
