@@ -7,7 +7,7 @@ import pickle
 
 # criteria associated with dummy variables
 CRITERIA_FLAGS = {
-    'isProfessor': ["professor", "faculty", "head"],
+    'isProfessor': ["professor", "faculty"],
     'isInstructor': ["instructor", "educator", "adjunct", "lecturer", "professor of teaching"],
     'isEmeritus': ["emiritus", "emerita"],
     'isAssistantProf': ["assistant"],
@@ -28,6 +28,7 @@ DEPARTMENT_PATTERNS = {
         r'chair in(?: the)? ([A-Za-z]+)',
         r'professor emerit(?:us|a) of(?: the| public)? ([A-Za-z]+)',
         r'faculty of(?: the)? ([A-Za-z]+)'
+        r'professor, ([A-Za-z]+)'
     ],
         
     # Backup patterns - contextual department mentions
@@ -36,10 +37,11 @@ DEPARTMENT_PATTERNS = {
         r'in the area of(?: the)? ([A-Za-z]+)',
         r'research(?: primarily)? focused on(?: the)? ([A-Za-z]+)'
         r'research focus(?:es)? on(?: the)? ([A-Za-z]+)'
+        r'(?:area of|research|areas of|) interest(?:s)(?::|.) ([A-Za-z]+)'
         r'expert in(?: the)? ([A-Za-z]+)',
         r'(?:school|college) of(?: the| public)? ([A-Za-z]+)',
         r'center for(?: the)? ([A-Za-z]+)',
-        r'ph(?:\.|d)?\.? (?:the|in)? ([A-Za-z]+)',
+        r'\bph\.?d\.?\s*(?:in|of|from)?\s*([A-Za-z]+)',
         r'is (?:a|an) ([A-Za-z]+) professor'
     ]
 }
